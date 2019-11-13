@@ -1,0 +1,32 @@
+plugins {
+   id 'scala'
+   id 'application'
+}
+
+group 'com.smac89'
+version '1.0'
+
+ext {
+   scala_version = '2.13'
+}
+
+repositories {
+   mavenCentral()
+}
+
+dependencies {
+   implementation "org.scala-lang:scala-library:$scala_version.+"
+   implementation "com.github.xuwei-k:ghscala_$scala_version:0.6.0"
+   implementation "com.github.xuwei-k:httpz-scalaj_$scala_version:0.6.1"
+   implementation "io.lemonlabs:scala-uri_$scala_version:1.5.1"
+}
+
+application {
+   mainClassName 'com.github.smac89.gitbot.Main'
+}
+
+run {
+   doFirst {
+      environment("GITHUB_TOKEN", gh_token)
+   }
+}
