@@ -1,8 +1,9 @@
-package com.github.smac89.gitbot
+package com.github.smac89
 
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
-import argonaut.CodecJson
+import argonaut.{CodecJson, DecodeJson, EncodeJson}
 import ghscala.User
 import httpz.JsonToString
 
@@ -37,4 +38,12 @@ object Release {
       "created_at",
       "published_at"
    )
+
+   /**
+    * [[java.time.LocalDateTime]] json encoder/decoder
+    */
+   implicit val localDateTimeCodec: CodecJson[LocalDateTime] =
+      CodecJson.derived(EncodeJson.jencode1(_.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+         DecodeJson.optionDecoder (_.string.map(LocalDateTime.parse(_, DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+            "LocalDateTime"))
 }

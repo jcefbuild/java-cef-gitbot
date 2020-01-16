@@ -1,8 +1,9 @@
 package com.github.smac89.gitbot
 
+import com.github.smac89.{CreateRelease, Release, SimpleSemver}
 import ghscala.{Blob, Github}
 import httpz.scalajhttp.ScalajInterpreter
-import httpz.{Action, InterpreterF, Request}
+import httpz.{Action, Request}
 import io.lemonlabs.uri.encoding.percentEncode
 import scalaz.concurrent.Task
 import scalaz.{-\/, Monoid, NonEmptyList, \/-}
@@ -20,7 +21,7 @@ object Main {
    // From https://bitbucket.org/chromiumembedded/cef/issues/2596/improve-cef-version-number-format#comment-50679036
    val versionPattern: Regex = """(?i)((?:(\d+)\.?){3}\+g\w+\+chromium-(?:(\d+)\.?){4})""".r
 
-   def parseCefVersion(fileContent: String): Option[SimpleSemVer] = {
+   def parseCefVersion(fileContent: String): Option[SimpleSemver] = {
       val cefVersion = """set\s*\(CEF_VERSION\s+"(.+?)"\s*\)""".r.unanchored
       fileContent match {
          case cefVersion(version) => version
@@ -28,7 +29,7 @@ object Main {
       }
    }
 
-   val latestRelease: Action[Option[SimpleSemVer]] =
+   val latestRelease: Action[Option[SimpleSemver]] =
       Github.repoReleases(buildRepoOwner, buildRepoName, "latest")
          .map(_.tagName.replaceFirst("""(\d+\.?){3}""", ""))
 
@@ -37,7 +38,7 @@ object Main {
          .map(_.tree.find(_.path == "CMakeLists.txt").map(_.sha))
          .flatMap {
             case Some(sha) => Github.blob(watchedRepoOwner, watchedRepoName, sha)
-            case None => Action(httpz.RequestsMonad.pure(-\/(httpz.Error.http(new RuntimeException("Missing `Sha`")))))
+            case None => Action(httpz.RequestsMonad.pure(-\/(httpz.Error.http(new RuntimeException("Missing `Sha` for CMakeLists.txt")))))
          }
 
    def triggerNewRelease(name: String, tagName: String): Action[Release] =
