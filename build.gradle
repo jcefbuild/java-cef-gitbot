@@ -25,16 +25,36 @@ application {
    mainClassName 'com.github.smac89.gitbot.Main'
 }
 
-run {
-   doFirst {
-      environment("GITHUB_TOKEN", gh_token)
-   }
-}
-
 wrapper {
    distributionType = Wrapper.DistributionType.BIN
    gradleVersion = '5.6.4'
 }
 
-task stage(dependsOn: ['clean'])
-stage.finalizedBy('build')
+task stage(dependsOn: ['clean']) {
+   finalizedBy('build')
+}
+
+startScripts {
+   dependsOn jar
+
+   doFirst {
+      unixStartScriptGenerator = configure(new CustomUnixStartScript()) {
+         classpath = configurations.runtimeClasspath + jar.outputs.files
+      }
+   }
+}
+
+class CustomUnixStartScript implements ScriptGenerator {
+   @InputFiles
+   FileCollection classpath
+
+   @Override
+   void generateScript (JavaAppStartScriptGenerationDetails details, Writer destination) {
+      destination.withWriter {
+         it << """
+            #!/bin/sh
+            java \$JAVA_OPTS -classpath $classpath.asPath ${details.mainClassName}
+         """.stripIndent().stripLeading()
+      }
+   }
+}

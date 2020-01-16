@@ -41,8 +41,10 @@ object Main {
             case None => Action(httpz.RequestsMonad.pure(-\/(httpz.Error.http(new RuntimeException("Missing `Sha` for CMakeLists.txt")))))
          }
 
-   def triggerNewRelease(name: String, tagName: String): Action[Release] =
+   def triggerNewRelease(name: String, tagName: String): Action[Release] = {
+      println(s"Creating a new release with tag: $tagName...")
       Github.createRepoRelease(buildRepoOwner, buildRepoName, CreateRelease(name, tagName))
+   }
 
    /**
     * Steps:
@@ -86,6 +88,9 @@ object Main {
    /**
     * The main entry point for the bot
     */
-   def main(args: Array[String]): Unit =
+   def main(args: Array[String]): Unit = {
+      println("Checking for new release...")
       program(sys.env.get("GITHUB_TOKEN")).unsafePerformSync
+      println("Finished!")
+   }
 }
