@@ -28,6 +28,14 @@ case class Release(name: String,
                    publishedAt: Option[LocalDateTime]) extends JsonToString[Release]
 
 object Release {
+   /**
+    * [[java.time.LocalDateTime]] json encoder/decoder
+    */
+   implicit val localDateTimeCodec: CodecJson[LocalDateTime] =
+      CodecJson.derived(EncodeJson.jencode1(_.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+         DecodeJson.optionDecoder (_.string.map(LocalDateTime.parse(_, DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+            "LocalDateTime"))
+
    implicit val releaseCodecJson: CodecJson[Release] = CodecJson.casecodec8(apply, unapply) (
       "name",
       "tag_name",
@@ -38,12 +46,4 @@ object Release {
       "created_at",
       "published_at"
    )
-
-   /**
-    * [[java.time.LocalDateTime]] json encoder/decoder
-    */
-   implicit val localDateTimeCodec: CodecJson[LocalDateTime] =
-      CodecJson.derived(EncodeJson.jencode1(_.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
-         DecodeJson.optionDecoder (_.string.map(LocalDateTime.parse(_, DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
-            "LocalDateTime"))
 }

@@ -30,3 +30,14 @@ run {
       environment("GITHUB_TOKEN", gh_token)
    }
 }
+
+wrapper {
+   distributionType = Wrapper.DistributionType.BIN
+   gradleVersion = '5.6.4'
+}
+
+task stage(dependsOn: ['clean', 'build']) {
+   doFirst {
+      tasks.getByName('build').mustRunAfter('clean')
+   }
+}
