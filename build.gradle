@@ -53,7 +53,7 @@ class CustomUnixStartScript implements ScriptGenerator {
       destination.withWriter {
          it << """
             #!/bin/sh
-            java \$JAVA_OPTS -classpath $classpath.asPath ${details.mainClassName}
+            java -classpath $classpath.asPath ${details.mainClassName}
          """.stripIndent().stripLeading()
       }
    }
