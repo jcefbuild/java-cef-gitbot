@@ -35,3 +35,6 @@ wrapper {
    distributionType = Wrapper.DistributionType.BIN
    gradleVersion = '5.6.4'
 }
+
+task stage(dependsOn: ['clean'])
+stage.finalizedBy('build')
