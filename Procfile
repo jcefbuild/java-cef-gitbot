@@ -1,1 +1,1 @@
-check-release: ./build/scripts/java-cef-gitbot
+check-jcef-versions: ./build/run/bin/java-cef-gitbot

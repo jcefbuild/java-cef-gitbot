@@ -31,30 +31,9 @@ wrapper {
 }
 
 task stage(dependsOn: ['clean']) {
-   finalizedBy('build')
+   finalizedBy('installDist')
 }
 
-startScripts {
-   dependsOn jar
-
-   doFirst {
-      unixStartScriptGenerator = configure(new CustomUnixStartScript()) {
-         classpath = configurations.runtimeClasspath + jar.outputs.files
-      }
-   }
-}
-
-class CustomUnixStartScript implements ScriptGenerator {
-   @InputFiles
-   FileCollection classpath
-
-   @Override
-   void generateScript (JavaAppStartScriptGenerationDetails details, Writer destination) {
-      destination.withWriter {
-         it << """
-            #!/bin/sh
-            java -classpath $classpath.asPath ${details.mainClassName}
-         """.stripIndent().stripLeading()
-      }
-   }
+installDist {
+   destinationDir = file("$buildDir/run")
 }
