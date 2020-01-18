@@ -4,13 +4,13 @@ import scala.language.implicitConversions
 import scala.util.matching.Regex
 
 // https://semver.org/
-case class SimpleSemver(major: String, minor: String, patch: String)
+case class SimpleSemver(major: String, minor: String, patch: String, original: String)
 
 object SimpleSemver {
    private [this] val pattern: Regex = """(\d+)\.(\d+).(\d+)""".r.unanchored
 
    implicit def unapply(arg: CharSequence): Option[SimpleSemver] = arg match {
-      case pattern(major, minor, patch) => Some(SimpleSemver(major, minor, patch))
+      case pattern(major, minor, patch) => Some(SimpleSemver(major, minor, patch, arg.toString))
       case _ => None
    }
 

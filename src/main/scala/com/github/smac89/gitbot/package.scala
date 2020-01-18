@@ -61,12 +61,12 @@ package object gitbot {
    implicit object SimpleSemverOrder extends scalaz.Order[SimpleSemver] {
       override def order(x: SimpleSemver, y: SimpleSemver): Ordering = (x, y) match {
          case (SimpleSemver(major1, _, _), SimpleSemver(major2, _, _)) if major1 != major2 =>
-            scalaz.Ordering.fromInt(major1.compare(major2))
+            Ordering.fromInt(major1.compare(major2))
          case (SimpleSemver(_, minor1, _), SimpleSemver(_, minor2, _)) if minor1 != minor2 =>
-            scalaz.Ordering.fromInt(minor1.compare(minor2))
+            Ordering.fromInt(minor1.compare(minor2))
          case (SimpleSemver(_, _, patch1), SimpleSemver(_, _, patch2)) if patch1 != patch2 =>
-            scalaz.Ordering.fromInt(patch1.compare(patch2))
-         case _ => scalaz.Ordering.EQ
+            Ordering.fromInt(patch1.compare(patch2))
+         case _ => Ordering.EQ
       }
    }
 }

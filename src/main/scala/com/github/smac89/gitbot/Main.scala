@@ -7,10 +7,13 @@ import httpz.{Action, Request}
 import io.lemonlabs.uri.encoding.percentEncode
 import scalaz.concurrent.Task
 import scalaz.{-\/, Monoid, NonEmptyList, \/-}
+import wvlet.log.{LogFormatter, LogSupport, Logger}
 
+import scala.util.chaining._
 import scala.util.matching.Regex
 
-object Main {
+object Main extends LogSupport {
+   Logger.setDefaultFormatter(LogFormatter.SourceCodeLogFormatter)
 
    val watchedRepoOwner: String = "ChromiumEmbedded".toLowerCase
    val watchedRepoName: String = "java-cef"
@@ -19,7 +22,8 @@ object Main {
    val buildRepoName: String = "java-cef-build"
 
    // From https://bitbucket.org/chromiumembedded/cef/issues/2596/improve-cef-version-number-format#comment-50679036
-   val versionPattern: Regex = """(?i)((?:(\d+)\.?){3}\+g\w+\+chromium-(?:(\d+)\.?){4})""".r
+   val cefVersionPattern: Regex = """(?i)((?:(\d+)\.?){3}\+g[a-z0-9]+\+chromium-(?:(\d+)\.?){4})""".r
+   val repoReleasePattern: Regex = """^((?:v\d+[.-]){3})""".r
 
    def parseCefVersion(fileContent: String): Option[SimpleSemver] = {
       val cefVersion = """set\s*\(CEF_VERSION\s+"(.+?)"\s*\)""".r.unanchored
@@ -29,9 +33,8 @@ object Main {
       }
    }
 
-   val latestRelease: Action[Option[SimpleSemver]] =
+   val latestBuildRelease: Action[Release] =
       Github.repoReleases(buildRepoOwner, buildRepoName, "latest")
-         .map(_.tagName.replaceFirst("""(\d+\.?){3}""", ""))
 
    val findFileWithCefVersion: Action[Blob] =
       Github.trees(watchedRepoOwner, watchedRepoName, percentEncode.encode("HEAD:", "utf-8"))
@@ -42,7 +45,7 @@ object Main {
          }
 
    def triggerNewRelease(name: String, tagName: String): Action[Release] = {
-      println(s"Creating a new release with tag: $tagName...")
+      info(s"Creating a new release with tag: $tagName...")
       Github.createRepoRelease(buildRepoOwner, buildRepoName, CreateRelease(name, tagName))
    }
 
@@ -63,17 +66,23 @@ object Main {
       implicit val monoidNelError: Monoid[NonEmptyList[httpz.Error]] = Monoid.instance(_.append(_), null)
 
       val task = for {
-         latestBuildTag <- latestRelease.nel
+         latestRelease <- latestBuildRelease.nel
          fileContent <- findFileWithCefVersion.nel.map(_.decoded)
          cefVersion = parseCefVersion(fileContent)
-         if ((cefVersion, latestBuildTag) match {
+         repoReleasePattern(repoVersion) = latestRelease.tagName
+         cefVersionPattern(latestBuiltCef) = repoReleasePattern.replaceFirstIn(latestRelease.tagName, "")
+
+         if ((cefVersion, latestBuiltCef: Option[SimpleSemver]) match {
             case (Some(cef), Some(tag)) =>
-               println(cef)
-               println(tag)
-               cef > tag
+               (cef > tag).tap { update =>
+                  if (update) {
+                     info(s"New release found: $cef")
+                  }
+               }
             case _ => false
          })
-         _ <- triggerNewRelease("TESTING", "v1.1.100").nel
+         tagName = s"$repoVersion${cefVersion.get.original}"
+         _ <- triggerNewRelease(tagName, tagName).nel
       } yield ()
 
       task.run.foldMap(ghToken.map { token =>
@@ -89,8 +98,8 @@ object Main {
     * The main entry point for the bot
     */
    def main(args: Array[String]): Unit = {
-      println("Checking for new release...")
+      info("Checking for new release...")
       program(sys.env.get("GITHUB_TOKEN")).unsafePerformSync
-      println("Finished!")
+      info("Finished!")
    }
 }
