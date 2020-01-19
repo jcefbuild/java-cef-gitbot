@@ -1,5 +1,8 @@
 package com.github.smac89.gitbot
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter.{ISO_LOCAL_DATE_TIME, ISO_OFFSET_DATE_TIME}
+
 import com.github.smac89.{CreateRelease, Release, SimpleSemver}
 import ghscala.{Blob, Github}
 import httpz.scalajhttp.ScalajInterpreter
@@ -9,11 +12,12 @@ import scalaz.concurrent.Task
 import scalaz.{-\/, Monoid, NonEmptyList, \/-}
 import wvlet.log.{LogFormatter, LogSupport, Logger}
 
+import scala.io.Source
 import scala.util.chaining._
 import scala.util.matching.Regex
 
 object Main extends LogSupport {
-   Logger.setDefaultFormatter(LogFormatter.SourceCodeLogFormatter)
+   Logger.setDefaultFormatter(LogFormatter.AppLogFormatter)
 
    val watchedRepoOwner: String = "ChromiumEmbedded".toLowerCase
    val watchedRepoName: String = "java-cef"
@@ -22,19 +26,11 @@ object Main extends LogSupport {
    val buildRepoName: String = "java-cef-build"
 
    // From https://bitbucket.org/chromiumembedded/cef/issues/2596/improve-cef-version-number-format#comment-50679036
-   val cefVersionPattern: Regex = """(?i)((?:(\d+)\.?){3}\+g[a-z0-9]+\+chromium-(?:(\d+)\.?){4})""".r
-   val repoReleasePattern: Regex = """^((?:v\d+[.-]){3})""".r
-
-   def parseCefVersion(fileContent: String): Option[SimpleSemver] = {
-      val cefVersion = """set\s*\(CEF_VERSION\s+"(.+?)"\s*\)""".r.unanchored
-      fileContent match {
-         case cefVersion(version) => version
-         case _ => None
-      }
-   }
+   val cefVersionPattern: Regex = """(?i)((?:\d+\.?){3}\+g[a-z0-9]+\+chromium-(?:\d+\.?){4})""".r.unanchored
+   val repoReleasePattern: Regex = """^(v(?:\d+[.-]){3})""".r.unanchored
 
    val latestBuildRelease: Action[Release] =
-      Github.repoReleases(buildRepoOwner, buildRepoName, "latest")
+      implicitly[Github.type].`repo`.releases(buildRepoOwner, buildRepoName, "latest")
 
    val findFileWithCefVersion: Action[Blob] =
       Github.trees(watchedRepoOwner, watchedRepoName, percentEncode.encode("HEAD:", "utf-8"))
@@ -44,10 +40,29 @@ object Main extends LogSupport {
             case None => Action(httpz.RequestsMonad.pure(-\/(httpz.Error.http(new RuntimeException("Missing `Sha` for CMakeLists.txt")))))
          }
 
-   def triggerNewRelease(name: String, tagName: String): Action[Release] = {
-      info(s"Creating a new release with tag: $tagName...")
-      Github.createRepoRelease(buildRepoOwner, buildRepoName, CreateRelease(name, tagName))
+   def parseCefVersion(fileContent: String): Option[SimpleSemver] = {
+      val cefVersion = """set\s*\(CEF_VERSION\s+"(.+?)"\s*\)""".r.unanchored
+      fileContent match {
+         case cefVersion(version) => version
+         case _ => None
+      }
    }
+
+   def triggerNewRelease(name: String, tagName: String, messageBody: String): Action[Release] = {
+      info(s"Creating a new release with tag: $tagName...")
+      implicitly[Github.type].repo.createRelease(buildRepoOwner, buildRepoName, CreateRelease(name, tagName))
+   }
+
+   def commitsSummary(startDate: LocalDateTime): Action[(String, LocalDateTime)] =
+      implicitly[Github.type].commits.list(watchedRepoOwner,
+         watchedRepoName,
+         filterParams = Map("since" -> startDate.toString.format(ISO_OFFSET_DATE_TIME))).map { commits =>
+         commits.map(_.commit)
+            .sortBy(commit => LocalDateTime.parse(commit.author.date))
+            .map(commit =>
+               s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.author.name}>")
+            .mkString("\n") -> LocalDateTime.parse(commits.head.commit.author.date)
+      }
 
    /**
     * Steps:
@@ -62,7 +77,6 @@ object Main extends LogSupport {
     */
    def program(ghToken: Option[String]): Task[Unit] = {
       import scalaz.Scalaz.ToOrderOps
-
       implicit val monoidNelError: Monoid[NonEmptyList[httpz.Error]] = Monoid.instance(_.append(_), null)
 
       val task = for {
@@ -74,16 +88,25 @@ object Main extends LogSupport {
 
          if ((cefVersion, latestBuiltCef: Option[SimpleSemver]) match {
             case (Some(cef), Some(tag)) =>
-               (cef > tag).tap { update =>
-                  if (update) {
-                     info(s"New release found: $cef")
+               info("Checking for new release...")
+               (cef > tag).tap { updateFound =>
+                  if (updateFound) {
+                     info(s"🚀 New release found: $cef")
+                  } else {
+                     info(cef)
+                     info(tag)
+                     info("Nothing new ☹️")
                   }
                }
             case _ => false
          })
+         lastReleaseDate = LocalDateTime.parse(Source.fromResource("latest-release.txt").mkString, ISO_LOCAL_DATE_TIME)
+         (releaseMessage, newLastReleaseDate) <- commitsSummary(lastReleaseDate).nel
          tagName = s"$repoVersion${cefVersion.get.original}"
-         _ <- triggerNewRelease(tagName, tagName).nel
-      } yield ()
+         _ <- triggerNewRelease(tagName, tagName,releaseMessage).nel
+      } yield {
+
+      }
 
       task.run.foldMap(ghToken.map { token =>
          val conf = Request.header("Authorization", s"token $token")
@@ -98,8 +121,8 @@ object Main extends LogSupport {
     * The main entry point for the bot
     */
    def main(args: Array[String]): Unit = {
-      info("Checking for new release...")
+      info(s"🤖 Started! ")
       program(sys.env.get("GITHUB_TOKEN")).unsafePerformSync
-      info("Finished!")
+      info(s"🤖 Finished!")
    }
 }
