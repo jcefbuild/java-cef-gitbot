@@ -31,7 +31,7 @@ object Main extends LogSupport {
    val repoReleasePattern: Regex = """^(v(?:\d+[.-]){3})""".r.unanchored
 
    val latestBuildRelease: Action[Release] =
-      Github.Repos.releases(buildRepoOwner, buildRepoName, "latest")
+      Github.Repo.releases(buildRepoOwner, buildRepoName, "latest")
 
    val findFileWithCefVersion: Action[Blob] =
       Github.trees(watchedRepoOwner, watchedRepoName, percentEncode.encode("HEAD:", "utf-8"))
@@ -50,8 +50,8 @@ object Main extends LogSupport {
    }
 
    def triggerNewRelease(name: String, tagName: String, messageBody: String): Action[Release] = {
-      info(s"Creating a new release with tag: $tagName...")
-      Github.Repos.createRelease(buildRepoOwner, buildRepoName,
+      info(s"Creating a new release with tag: $tagName")
+      Github.Repo.createRelease(buildRepoOwner, buildRepoName,
          CreateRelease(name, tagName, draft = false, body = Some(messageBody)))
    }
 

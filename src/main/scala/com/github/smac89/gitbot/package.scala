@@ -41,7 +41,7 @@ package object gitbot {
                }.asInstanceOf[Iterator[(String, String)]].toMap))
       }
 
-      object Repos {
+      object Repo {
          /**
           * Retrieves a single release
           *
@@ -103,5 +103,4 @@ package object gitbot {
          case _ => Ordering.EQ
       }
    }
-
 }
