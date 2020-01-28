@@ -52,7 +52,7 @@ object Main extends LogSupport {
    def triggerNewRelease(name: String, tagName: String, messageBody: String): Action[Release] = {
       info(s"Creating a new release with tag: $tagName...")
       Github.Repos.createRelease(buildRepoOwner, buildRepoName,
-         CreateRelease(name, tagName, Some(messageBody)/*, draft = false*/))
+         CreateRelease(name, tagName, draft = false, body = Some(messageBody)))
    }
 
    def commitsSummary(startDate: LocalDateTime): Action[(String, LocalDateTime)] =
