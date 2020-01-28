@@ -1,7 +1,8 @@
 package com.github.smac89
 
 import argonaut.{EncodeJson, PrettyParams}
-import ghscala.CommitResponse
+import com.redis.RedisClient
+import ghscala.{Commit, CommitResponse}
 import httpz.{Action, Core, Request}
 import io.lemonlabs.uri.dsl._
 import scalaz.Ordering
@@ -11,10 +12,12 @@ import scala.language.implicitConversions
 package object gitbot {
    type ReleaseId = String
 
+   lazy val redis = new RedisClient(sys.env("REDIS_URL").url.toJavaURI)
+
    implicit class EnhancedGithub(val github: ghscala.Github.type) {
       val baseURL = "https://api.github.com"
 
-      object commits {
+      object Commits {
          /**
           * List the commits on a repository
           * https://developer.github.com/v3/repos/commits/#list-commits-on-a-repository
@@ -26,20 +29,19 @@ package object gitbot {
           */
          def list(owner: String,
                   repo: String,
-                  filterParams: Map[String, String] = Map()): Action[List[CommitResponse]] = {
+                  filterParams: Map[String, String] = Map()): Action[List[CommitInfo]] =
             Core.json(Request(url = baseURL / s"repos/$owner/$repo/commits",
                params = (
-                  "sha" -> filterParams("sha"),
-                  "path" -> filterParams("path"),
-                  "author" -> filterParams("author"),
-                  "since" -> filterParams("since"),
-                  "until" -> filterParams("until")).productIterator.collect {
-                  case param@(_, Some(_)) => param
+                  "sha" -> filterParams.get("sha"),
+                  "path" -> filterParams.get("path"),
+                  "author" -> filterParams.get("author"),
+                  "since" -> filterParams.get("since"),
+                  "until" -> filterParams.get("until")).productIterator.collect {
+                  case (param, Some(value)) => (param, value)
                }.asInstanceOf[Iterator[(String, String)]].toMap))
-         }
       }
 
-      object repo {
+      object Repos {
          /**
           * Retrieves a single release
           *
@@ -87,6 +89,7 @@ package object gitbot {
                   .getBytes)))
          }
       }
+
    }
 
    implicit object SimpleSemverOrder extends scalaz.Order[SimpleSemver] {
@@ -100,4 +103,5 @@ package object gitbot {
          case _ => Ordering.EQ
       }
    }
+
 }

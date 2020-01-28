@@ -20,6 +20,8 @@ dependencies {
    implementation "com.github.xuwei-k:httpz-scalaj_$scala_version:0.6.1"
    implementation "io.lemonlabs:scala-uri_$scala_version:1.5.1"
    implementation "org.wvlet.airframe:airframe-log_$scala_version:20.1.1"
+   implementation "net.debasishg:redisclient_$scala_version:3.20"
+   runtimeClasspath "org.slf4j:slf4j-simple:1.7.30"
 }
 
 application {

@@ -12,7 +12,6 @@ import scalaz.concurrent.Task
 import scalaz.{-\/, Monoid, NonEmptyList, \/-}
 import wvlet.log.{LogFormatter, LogSupport, Logger}
 
-import scala.io.Source
 import scala.util.chaining._
 import scala.util.matching.Regex
 
@@ -25,12 +24,14 @@ object Main extends LogSupport {
    val buildRepoOwner: String = "smac89"
    val buildRepoName: String = "java-cef-build"
 
+   val RELEASE_DATE_KEY = "com.github.smac89.gitbot.lastReleaseDate"
+
    // From https://bitbucket.org/chromiumembedded/cef/issues/2596/improve-cef-version-number-format#comment-50679036
    val cefVersionPattern: Regex = """(?i)((?:\d+\.?){3}\+g[a-z0-9]+\+chromium-(?:\d+\.?){4})""".r.unanchored
    val repoReleasePattern: Regex = """^(v(?:\d+[.-]){3})""".r.unanchored
 
    val latestBuildRelease: Action[Release] =
-      implicitly[Github.type].`repo`.releases(buildRepoOwner, buildRepoName, "latest")
+      Github.Repos.releases(buildRepoOwner, buildRepoName, "latest")
 
    val findFileWithCefVersion: Action[Blob] =
       Github.trees(watchedRepoOwner, watchedRepoName, percentEncode.encode("HEAD:", "utf-8"))
@@ -50,19 +51,25 @@ object Main extends LogSupport {
 
    def triggerNewRelease(name: String, tagName: String, messageBody: String): Action[Release] = {
       info(s"Creating a new release with tag: $tagName...")
-      implicitly[Github.type].repo.createRelease(buildRepoOwner, buildRepoName, CreateRelease(name, tagName))
+      Github.Repos.createRelease(buildRepoOwner, buildRepoName,
+         CreateRelease(name, tagName, Some(messageBody)/*, draft = false*/))
    }
 
    def commitsSummary(startDate: LocalDateTime): Action[(String, LocalDateTime)] =
-      implicitly[Github.type].commits.list(watchedRepoOwner,
+      Github.Commits.list(watchedRepoOwner,
          watchedRepoName,
          filterParams = Map("since" -> startDate.toString.format(ISO_OFFSET_DATE_TIME))).map { commits =>
          commits.map(_.commit)
-            .sortBy(commit => LocalDateTime.parse(commit.author.date))
+            .sortBy(commit => LocalDateTime.parse(commit.author.date, ISO_OFFSET_DATE_TIME))
             .map(commit =>
                s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.author.name}>")
-            .mkString("\n") -> LocalDateTime.parse(commits.head.commit.author.date)
+            .mkString("## Changes summary:\n```\n", "\n", "\n```") ->
+            LocalDateTime.parse(commits.head.commit.author.date, ISO_OFFSET_DATE_TIME)
       }
+
+   def saveReleaseLastCommitDate(time: LocalDateTime): Unit = redis.set(RELEASE_DATE_KEY, time.format(ISO_LOCAL_DATE_TIME))
+
+   def readCurrentReleaseCommitDate: LocalDateTime = LocalDateTime.parse(redis.get[String](RELEASE_DATE_KEY).get, ISO_OFFSET_DATE_TIME)
 
    /**
     * Steps:
@@ -100,13 +107,13 @@ object Main extends LogSupport {
                }
             case _ => false
          })
-         lastReleaseDate = LocalDateTime.parse(Source.fromResource("latest-release.txt").mkString, ISO_LOCAL_DATE_TIME)
+         lastReleaseDate = readCurrentReleaseCommitDate
          (releaseMessage, newLastReleaseDate) <- commitsSummary(lastReleaseDate).nel
          tagName = s"$repoVersion${cefVersion.get.original}"
-         _ <- triggerNewRelease(tagName, tagName,releaseMessage).nel
-      } yield {
+         _ <- triggerNewRelease(tagName, tagName, releaseMessage).nel
+         _ = saveReleaseLastCommitDate(newLastReleaseDate)
 
-      }
+      } yield ()
 
       task.run.foldMap(ghToken.map { token =>
          val conf = Request.header("Authorization", s"token $token")
