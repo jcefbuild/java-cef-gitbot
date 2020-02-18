@@ -21,7 +21,7 @@ object Main extends LogSupport {
    val watchedRepoOwner: String = "ChromiumEmbedded".toLowerCase
    val watchedRepoName: String = "java-cef"
 
-   val buildRepoOwner: String = "smac89"
+   val buildRepoOwner: String = "jcefbuild"
    val buildRepoName: String = "java-cef-build"
 
    val RELEASE_DATE_KEY = "com.github.smac89.gitbot.lastReleaseDate"
