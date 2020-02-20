@@ -1,7 +1,6 @@
 package com.github.smac89.gitbot
 
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter.{ISO_LOCAL_DATE_TIME, ISO_OFFSET_DATE_TIME}
+import java.time.OffsetDateTime
 
 import com.github.smac89.{CreateRelease, Release, SimpleSemver}
 import ghscala.{Blob, Github}
@@ -55,21 +54,21 @@ object Main extends LogSupport {
          CreateRelease(name, tagName, draft = false, body = Some(messageBody)))
    }
 
-   def commitsSummary(startDate: LocalDateTime): Action[(String, LocalDateTime)] =
+   def commitsSummary(startDate: OffsetDateTime): Action[(String, OffsetDateTime)] =
       Github.Commits.list(watchedRepoOwner,
          watchedRepoName,
-         filterParams = Map("since" -> startDate.toString.format(ISO_OFFSET_DATE_TIME))).map { commits =>
+         filterParams = Map("since" -> startDate.toString)).map { commits =>
          commits.map(_.commit)
-            .sortBy(commit => LocalDateTime.parse(commit.author.date, ISO_OFFSET_DATE_TIME))
+            .sortBy(commit => OffsetDateTime.parse(commit.author.date))
             .map(commit =>
                s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.author.name}>")
             .mkString("## Changes summary:\n```\n", "\n", "\n```") ->
-            LocalDateTime.parse(commits.head.commit.author.date, ISO_OFFSET_DATE_TIME)
+            OffsetDateTime.parse(commits.head.commit.author.date)
       }
 
-   def saveReleaseLastCommitDate(time: LocalDateTime): Unit = redis.set(RELEASE_DATE_KEY, time.format(ISO_LOCAL_DATE_TIME))
+   def saveReleaseLastCommitDate(time: OffsetDateTime): Unit = redis.set(RELEASE_DATE_KEY, time)
 
-   def readCurrentReleaseCommitDate: LocalDateTime = LocalDateTime.parse(redis.get[String](RELEASE_DATE_KEY).get, ISO_OFFSET_DATE_TIME)
+   def readCurrentReleaseCommitDate: OffsetDateTime = OffsetDateTime.parse(redis.get[String](RELEASE_DATE_KEY).get)
 
    /**
     * Steps:
