@@ -2,7 +2,6 @@ package com.github.smac89
 
 import argonaut.{EncodeJson, PrettyParams}
 import com.redis.RedisClient
-import ghscala.{Commit, CommitResponse}
 import httpz.{Action, Core, Request}
 import io.lemonlabs.uri.dsl._
 import scalaz.Ordering

@@ -6,6 +6,7 @@ import com.github.smac89.{CreateRelease, Release, SimpleSemver}
 import ghscala.{Blob, Github}
 import httpz.scalajhttp.ScalajInterpreter
 import httpz.{Action, Request}
+import io.lemonlabs.uri.dsl._
 import io.lemonlabs.uri.encoding.percentEncode
 import scalaz.concurrent.Task
 import scalaz.{-\/, Monoid, NonEmptyList, \/-}
@@ -60,7 +61,7 @@ object Main extends LogSupport {
          commits.map(_.commit)
             .sortBy(commit => OffsetDateTime.parse(commit.committer.date))
             .map(commit =>
-               s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.committer.name}>")
+               s"${commit.url.toAbsoluteUrl.path.parts.last.substring(0, 7)} - ${commit.message} <${commit.committer.name}>")
             .mkString("## Changes summary:\n```\n", "\n", "\n```") ->
             commits.headOption
                .map(_.commit.committer.date)
