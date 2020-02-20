@@ -55,16 +55,15 @@ object Main extends LogSupport {
    }
 
    def commitsSummary(startDate: OffsetDateTime): Action[(String, OffsetDateTime)] =
-      Github.Commits.list(watchedRepoOwner,
-         watchedRepoName,
+      Github.Commits.list(watchedRepoOwner, watchedRepoName,
          filterParams = Map("since" -> startDate.toString)).map { commits =>
          commits.map(_.commit)
-            .sortBy(commit => OffsetDateTime.parse(commit.author.date))
+            .sortBy(commit => OffsetDateTime.parse(commit.committer.date))
             .map(commit =>
-               s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.author.name}>")
+               s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.committer.name}>")
             .mkString("## Changes summary:\n```\n", "\n", "\n```") ->
             commits.headOption
-               .map(_.commit.author.date)
+               .map(_.commit.committer.date)
                .map(OffsetDateTime.parse)
                .getOrElse(OffsetDateTime.now(ZoneOffset.UTC)).withNano(0)
       }
@@ -113,7 +112,7 @@ object Main extends LogSupport {
          (releaseMessage, newLastReleaseDate) <- commitsSummary(lastReleaseDate).nel
          tagName = s"$repoVersion${cefVersion.get.original}"
          _ <- triggerNewRelease(tagName, tagName, releaseMessage).nel
-         _ = saveReleaseLastCommitDate(newLastReleaseDate.plusSeconds(1))
+         _ = saveReleaseLastCommitDate(newLastReleaseDate)
 
       } yield ()
 
