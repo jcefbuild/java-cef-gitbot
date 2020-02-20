@@ -1,7 +1,6 @@
 package com.github.smac89
 
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.time.OffsetDateTime
 
 import argonaut.{CodecJson, DecodeJson, EncodeJson}
 import ghscala.User
@@ -24,17 +23,17 @@ case class Release(name: String,
                    author: User,
                    draft: Boolean,
                    prerelease: Boolean,
-                   createdAt: LocalDateTime,
-                   publishedAt: Option[LocalDateTime]) extends JsonToString[Release]
+                   createdAt: OffsetDateTime,
+                   publishedAt: Option[OffsetDateTime]) extends JsonToString[Release]
 
 object Release {
    /**
-    * [[java.time.LocalDateTime]] json encoder/decoder
+    * [[java.time.OffsetDateTime]] json encoder/decoder
     */
-   implicit val localDateTimeCodec: CodecJson[LocalDateTime] =
-      CodecJson.derived(EncodeJson.jencode1(_.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
-         DecodeJson.optionDecoder (_.string.map(LocalDateTime.parse(_, DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
-            "LocalDateTime"))
+   implicit val offsetDateTimeCodec: CodecJson[OffsetDateTime] =
+      CodecJson.derived(EncodeJson.jencode1(_.toString),
+         DecodeJson.optionDecoder (_.string.map(OffsetDateTime.parse),
+            "OffsetDateTime"))
 
    implicit val releaseCodecJson: CodecJson[Release] = CodecJson.casecodec8(apply, unapply) (
       "name",
