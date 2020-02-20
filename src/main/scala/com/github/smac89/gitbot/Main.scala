@@ -1,6 +1,6 @@
 package com.github.smac89.gitbot
 
-import java.time.OffsetDateTime
+import java.time.{OffsetDateTime, ZoneOffset}
 
 import com.github.smac89.{CreateRelease, Release, SimpleSemver}
 import ghscala.{Blob, Github}
@@ -63,7 +63,10 @@ object Main extends LogSupport {
             .map(commit =>
                s"${commit.tree.sha.substring(0, 7)} - ${commit.message} <${commit.author.name}>")
             .mkString("## Changes summary:\n```\n", "\n", "\n```") ->
-            OffsetDateTime.parse(commits.head.commit.author.date)
+            commits.headOption
+               .map(_.commit.author.date)
+               .map(OffsetDateTime.parse)
+               .getOrElse(OffsetDateTime.now(ZoneOffset.UTC)).withNano(0)
       }
 
    def saveReleaseLastCommitDate(time: OffsetDateTime): Unit = redis.set(RELEASE_DATE_KEY, time)
@@ -110,7 +113,7 @@ object Main extends LogSupport {
          (releaseMessage, newLastReleaseDate) <- commitsSummary(lastReleaseDate).nel
          tagName = s"$repoVersion${cefVersion.get.original}"
          _ <- triggerNewRelease(tagName, tagName, releaseMessage).nel
-         _ = saveReleaseLastCommitDate(newLastReleaseDate)
+         _ = saveReleaseLastCommitDate(newLastReleaseDate.plusSeconds(1))
 
       } yield ()
 
