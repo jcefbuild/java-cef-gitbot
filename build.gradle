@@ -29,8 +29,8 @@ application {
 }
 
 wrapper {
-   distributionType = Wrapper.DistributionType.BIN
-   gradleVersion = '5.6.4'
+   distributionType = Wrapper.DistributionType.ALL
+   gradleVersion = '6.3'
 }
 
 task stage(dependsOn: ['clean']) {

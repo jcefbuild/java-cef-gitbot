@@ -22,7 +22,7 @@ object Main extends LogSupport {
    val watchedRepoName: String = "java-cef"
 
    val buildRepoOwner: String = "jcefbuild"
-   val buildRepoName: String = "java-cef-build"
+   val buildRepoName: String = "jcefbuild"
 
    val RELEASE_DATE_KEY = "com.github.smac89.gitbot.lastReleaseDate"
 
