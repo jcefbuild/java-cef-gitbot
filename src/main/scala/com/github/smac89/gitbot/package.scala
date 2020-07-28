@@ -38,6 +38,19 @@ package object gitbot {
                   "until" -> filterParams.get("until")).productIterator.collect {
                   case (param, Some(value)) => (param, value)
                }.asInstanceOf[Iterator[(String, String)]].toMap))
+
+         /**
+          *  Compare two commits in a repository
+          *  https://docs.github.com/en/rest/reference/repos#compare-two-commits
+          *
+          * @param owner   The repository owner
+          * @param repo    The repository name
+          * @param base    The base(earliest) commit
+          * @param head    The last(latest) commit
+          * @return        Object to compare the commits
+          */
+         def compare(owner: String, repo: String, base: String, head: String = "HEAD"): Action[CompareCommit] =
+            Core.json(Request(url = baseURL/s"repos/$owner/$repo/compare/$base...$head"))
       }
 
       object Repo {

@@ -1,12 +1,9 @@
 package com.github.smac89.gitbot
 
-import java.time.{OffsetDateTime, ZoneOffset}
-
 import com.github.smac89.{CreateRelease, Release, SimpleSemver}
 import ghscala.{Blob, Github}
 import httpz.scalajhttp.ScalajInterpreter
 import httpz.{Action, Request}
-import io.lemonlabs.uri.dsl._
 import io.lemonlabs.uri.encoding.percentEncode
 import scalaz.concurrent.Task
 import scalaz.{-\/, Monoid, NonEmptyList, \/-}
@@ -24,7 +21,7 @@ object Main extends LogSupport {
    val buildRepoOwner: String = "jcefbuild"
    val buildRepoName: String = "jcefbuild"
 
-   val RELEASE_DATE_KEY = "com.github.smac89.gitbot.lastReleaseDate"
+   val RELEASE_SHA_KEY = "com.github.smac89.gitbot.lastReleaseSha"
 
    // From https://bitbucket.org/chromiumembedded/cef/issues/2596/improve-cef-version-number-format#comment-50679036
    val cefVersionPattern: Regex = """(?i)((?:\d+\.?){3}\+g[a-z0-9]+\+chromium-(?:\d+\.?){4})""".r.unanchored
@@ -55,23 +52,15 @@ object Main extends LogSupport {
          CreateRelease(name, tagName, draft = false, body = Some(messageBody)))
    }
 
-   def commitsSummary(startDate: OffsetDateTime): Action[(String, OffsetDateTime)] =
-      Github.Commits.list(watchedRepoOwner, watchedRepoName,
-         filterParams = Map("since" -> startDate.toString)).map { commits =>
-         commits.map(_.commit)
-            .sortBy(commit => OffsetDateTime.parse(commit.committer.date))
-            .map(commit =>
-               s"${commit.url.toAbsoluteUrl.path.parts.last.substring(0, 7)} - ${commit.message} <${commit.committer.name}>")
-            .mkString("## Changes summary:\n```\n", "\n", "\n```") ->
-            commits.headOption
-               .map(_.commit.committer.date)
-               .map(OffsetDateTime.parse)
-               .getOrElse(OffsetDateTime.now(ZoneOffset.UTC)).withNano(0)
+   def commitsSummary(previousCommitSha: String): Action[(String, String)] =
+      Github.Commits.compare(watchedRepoOwner, watchedRepoName,
+         base = previousCommitSha).map { compareCommits =>
+         s"## Changes summary:\n-${compareCommits.permaLink}\n" -> compareCommits.commits.last.sha
       }
 
-   def saveReleaseLastCommitDate(time: OffsetDateTime): Unit = redis.set(RELEASE_DATE_KEY, time)
+   def saveUpstreamLastCommitSha(commitSha: String): Unit = redis.set(RELEASE_SHA_KEY, commitSha)
 
-   def readCurrentReleaseCommitDate: OffsetDateTime = OffsetDateTime.parse(redis.get[String](RELEASE_DATE_KEY).get)
+   def readLastReleaseCommitSha: String = redis.get[String](RELEASE_SHA_KEY).get
 
    /**
     * Steps:
@@ -109,11 +98,11 @@ object Main extends LogSupport {
                }
             case _ => false
          })
-         lastReleaseDate = readCurrentReleaseCommitDate
-         (releaseMessage, newLastReleaseDate) <- commitsSummary(lastReleaseDate).nel
+         lastReleaseCommitSha = readLastReleaseCommitSha
+         (releaseMessage, latestUpstreamCommitSha) <- commitsSummary(lastReleaseCommitSha).nel
          tagName = s"$repoVersion${cefVersion.get.original}"
          _ <- triggerNewRelease(tagName, tagName, releaseMessage).nel
-         _ = saveReleaseLastCommitDate(newLastReleaseDate)
+         _ = saveUpstreamLastCommitSha(latestUpstreamCommitSha)
 
       } yield ()
 
