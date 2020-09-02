@@ -18,6 +18,8 @@ dependencies {
    implementation "org.scala-lang:scala-library:$scala_version.+"
    implementation "com.github.xuwei-k:ghscala_$scala_version:0.6.0"
    implementation "com.github.xuwei-k:httpz-scalaj_$scala_version:0.6.1"
+
+   implementation "io.argonaut:argonaut-monocle_$scala_version:6.2.3"
    implementation "io.lemonlabs:scala-uri_$scala_version:1.5.1"
    implementation "org.wvlet.airframe:airframe-log_$scala_version:20.1.1"
    implementation "net.debasishg:redisclient_$scala_version:3.20"

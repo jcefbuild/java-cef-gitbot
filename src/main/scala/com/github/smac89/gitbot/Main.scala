@@ -55,7 +55,7 @@ object Main extends LogSupport {
    def commitsSummary(previousCommitSha: String): Action[(String, String)] =
       Github.Commits.compare(watchedRepoOwner, watchedRepoName,
          base = previousCommitSha).map { compareCommits =>
-         s"## Changes summary:\n-${compareCommits.permaLink}\n" -> compareCommits.commits.last.sha
+         s"## Changes summary:\n-${compareCommits.permaLink}\n" -> compareCommits.commitShas.last
       }
 
    def saveUpstreamLastCommitSha(commitSha: String): Unit = redis.set(RELEASE_SHA_KEY, commitSha)
